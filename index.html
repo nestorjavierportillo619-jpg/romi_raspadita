@@ -325,10 +325,10 @@ body {
 
 </div>
 
-<!-- SCRIPT DE FIREBASE MODULAR ACTUALIZADO -->
+<!-- SCRIPT DE FIREBASE MODULAR (VERSIÓN 13.1.0 UNIFICADA) -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyC6aI7NwktExiqgA1WsvagKurdAu0lyPww",
@@ -342,6 +342,7 @@ body {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
+  let globalData = {};
   let usersDB = {};
   let prizesDB = [];
   let cardConfigDB = {};
@@ -353,10 +354,10 @@ body {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        const data = docSnap.data();
-        usersDB = data.users || {};
-        prizesDB = data.prizes || [];
-        cardConfigDB = data.cardConfig || {};
+        globalData = docSnap.data();
+        usersDB = globalData.users || {};
+        prizesDB = globalData.prizes || [];
+        cardConfigDB = globalData.cardConfig || {};
       }
     } catch (e) {
       console.error("Error al conectar con Firebase:", e);
@@ -367,7 +368,14 @@ body {
   async function saveToCloud() {
     try {
       const docRef = doc(db, "sistema", "datos_globales");
-      await setDoc(docRef, { users: usersDB }, { merge: true });
+      await setDoc(docRef, { 
+        users: usersDB,
+        prizes: prizesDB,
+        cardConfig: cardConfigDB,
+        withdrawals: globalData.withdrawals || [],
+        subAdmins: globalData.subAdmins || {},
+        ticketLogs: globalData.ticketLogs || []
+      }, { merge: true });
     } catch (e) {
       console.error("Error al guardar en Firebase:", e);
       showToast("Error al sincronizar con el Casino", "error");
@@ -383,6 +391,11 @@ body {
 
     if (!usersDB[username] || usersDB[username].password !== pass) {
       showToast('Usuario o contraseña incorrectos', 'error');
+      return;
+    }
+
+    if (usersDB[username].role === 'agent') {
+      showToast('Los agentes tienen prohibido usar sus cartones para jugar', 'error');
       return;
     }
 
@@ -420,7 +433,7 @@ body {
     if (!currentUser || !usersDB[currentUser]) return;
     const data = usersDB[currentUser];
 
-    document.getElementById('dash-username').innerText = data.username || data.name;
+    document.getElementById('dash-username').innerText = data.name || data.username;
     document.getElementById('user-id-val').innerText = data.id || 'N/A';
     document.getElementById('dash-balance').innerText = (data.balance || 0).toLocaleString('es-PY') + ' GS';
     document.getElementById('dash-tickets').innerText = data.tickets || 0;
@@ -673,7 +686,7 @@ body {
       document.getElementById('scratch-progress').style.width = percent + '%';
       document.getElementById('progress-text').innerText = percent + '%';
       
-      if (percent >= 99 && !isScratchedCompleted) {
+      if (percent >= 90 && !isScratchedCompleted) {
         isScratchedCompleted = true;
         scratchCanvas.style.transition = 'opacity 0.3s ease-out';
         scratchCanvas.style.opacity = '0';
